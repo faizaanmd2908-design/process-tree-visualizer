@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linux Process Tree Visualizer</title>
+<style>
+:root{--bg:#070a18;--ink:#e9eeff;--mute:#8a96b8;--line:rgba(255,255,255,.09);--glass:rgba(18,24,48,.62);--c1:#35e0ff;--c2:#9b7bff;--c3:#ff5d8f;
+--R:#2ee59d;--S:#4f9bff;--D:#ffb53b;--Z:#ff4d6d;--T:#b07bff;--I:#7b88a8;--X:#ff4d6d;--V:#fff}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,sans-serif;min-height:100vh;
+background:radial-gradient(900px 500px at 8% -10%,rgba(155,123,255,.28),transparent 60%),radial-gradient(800px 500px at 100% 0,rgba(53,224,255,.2),transparent 60%),radial-gradient(700px 500px at 50% 110%,rgba(255,93,143,.12),transparent 60%),var(--bg);background-attachment:fixed}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 22px 40px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--c1),var(--c2));display:grid;place-items:center;font-weight:800;color:#06102a;font-size:17px;box-shadow:0 0 28px rgba(53,224,255,.45)}
+h1{margin:0;font-size:26px;letter-spacing:-.02em;font-weight:800}.sub{color:var(--mute);font-size:13px}
+.pill{display:flex;align-items:center;gap:8px;padding:6px 13px;border:1px solid var(--line);border-radius:99px;background:var(--glass);font-size:13px}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--R);animation:pu 1.4s infinite}.pill.off i{background:var(--Z);animation:none}
+@keyframes pu{0%{box-shadow:0 0 0 0 rgba(46,229,157,.6)}100%{box-shadow:0 0 0 10px rgba(46,229,157,0)}}
+.pill.alert{border-color:var(--Z);color:#ffd3dc;background:rgba(255,77,109,.18);display:none}.pill.alert.on{display:flex}
+.sp{flex:1}
+.card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:0}
+.card h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--mute)}
+.grid{display:grid;gap:14px;margin-bottom:14px}
+.kpis{grid-template-columns:repeat(6,1fr)}.kpi b{display:block;font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.1;background:linear-gradient(120deg,#fff,var(--c1));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kpi span{color:var(--mute);font-size:12.5px}.kpi.z b{background:linear-gradient(120deg,#fff,var(--Z));-webkit-background-clip:text;background-clip:text}
+.r2{grid-template-columns:1.7fr 1fr 1fr}.r3{grid-template-columns:1fr 1fr 1fr}
+canvas{width:100%;height:150px;display:block}.leg{display:flex;gap:14px;font-size:12px;color:var(--mute);margin-top:6px}.leg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+.donutw{display:flex;align-items:center;gap:16px}.donut{width:132px;height:132px;border-radius:50%;flex:none;position:relative}
+.donut::after{content:attr(data-n);position:absolute;inset:20px;border-radius:50%;background:#0d1330;display:grid;place-items:center;font-size:24px;font-weight:800}
+.dl div{display:flex;align-items:center;gap:8px;font-size:13px;margin:3px 0}.dl i,.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.bar{display:grid;grid-template-columns:96px 1fr 58px;gap:8px;align-items:center;margin:6px 0;font-size:12.5px;cursor:pointer}
+.bar:hover .nm{color:var(--c1)}.nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tr{height:9px;border-radius:9px;background:rgba(255,255,255,.07);overflow:hidden}
+.tr u{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,var(--c2),var(--c1));transition:width .6s}.tr.m u{background:linear-gradient(90deg,var(--c3),var(--c2))}.bar em{font-style:normal;color:var(--mute);text-align:right;font-family:ui-monospace,Consolas,monospace}
+.feed{height:176px;overflow:auto;font-size:12.5px;font-family:ui-monospace,Consolas,monospace}.feed div{padding:3px 0;border-bottom:1px dashed var(--line)}.feed .b{color:var(--R)}.feed .d{color:var(--Z)}.feed .z{color:var(--D)}.feed small{color:var(--mute);margin-right:8px}
+.main{grid-template-columns:1fr 340px;align-items:start}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+input,button,select{font:inherit;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;padding:7px 12px}
+input{flex:1;min-width:200px}button{cursor:pointer}button:hover{border-color:var(--c1)}button.on{background:linear-gradient(120deg,var(--c2),var(--c1));color:#06102a;border-color:transparent;font-weight:700}select option{background:#10163a}
+:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
+#view{height:560px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:rgba(5,8,22,.45)}
+.hdr,.row{display:grid;grid-template-columns:minmax(220px,2.2fr) 58px 58px 80px 84px 54px 72px 40px minmax(160px,3fr);gap:8px;padding:0 12px;align-items:center;min-width:940px}
+.hdr{position:sticky;top:0;height:32px;background:#0c1230;color:var(--mute);font-size:12px;font-weight:600;z-index:2;border-bottom:1px solid var(--line)}
+.row{height:27px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}.row:hover{background:rgba(255,255,255,.05)}.row.sel{background:rgba(53,224,255,.14);box-shadow:inset 3px 0 var(--c1)}
+.num{font-family:ui-monospace,Consolas,monospace;text-align:right}.cmd{font-family:ui-monospace,Consolas,monospace;color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.name em{font-style:normal;color:var(--c2);font-size:12px;margin-left:6px}
+.tg{display:inline-block;width:16px;text-align:center;color:var(--mute);cursor:pointer}.dot{margin-right:6px}
+.row.new{animation:bn 3s}@keyframes bn{0%,50%{background:rgba(46,229,157,.28)}100%{background:transparent}}.row.ghost{color:var(--Z);text-decoration:line-through;background:rgba(255,77,109,.1)}.row.zombie .name{color:var(--Z);font-weight:700}.row.miss{opacity:.4}
+.s-R{background:var(--R)}.s-S{background:var(--S)}.s-D{background:var(--D)}.s-Z{background:var(--Z)}.s-T{background:var(--T)}.s-I{background:var(--I)}.s-X{background:var(--X)}.s-V{background:#fff}
+svg text{font:12px "Segoe UI",sans-serif;fill:var(--ink)}svg .l{fill:none;stroke:rgba(150,170,255,.3);stroke-width:1.4}svg .nd{cursor:pointer}svg .nd.sel circle{stroke:#fff;stroke-width:3}svg .nd.ghost text{fill:var(--Z);text-decoration:line-through}svg .p{fill:var(--mute);font:11px ui-monospace,Consolas,monospace}svg circle{filter:drop-shadow(0 0 5px currentColor)}
+aside h2{margin:0;font-size:22px}.chip{display:inline-block;margin:6px 0 12px;padding:2px 10px;border-radius:99px;background:rgba(53,224,255,.14);color:var(--c1);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+aside dl{display:grid;grid-template-columns:96px 1fr;gap:5px 8px;margin:10px 0}aside dt{color:var(--mute)}aside dd{margin:0;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;word-break:break-all}
+.anc{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.anc a{cursor:pointer;padding:2px 9px;border-radius:99px;border:1px solid var(--line);font-size:12px}.anc a:hover{border-color:var(--c1);color:var(--c1)}
+.empty{color:var(--mute);padding:14px}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.r2,.r3,.main{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><div class="wrap">
+<header><div class="logo">PT</div><div><h1>Linux Process Tree Visualizer</h1><div class="sub" id="host">connecting to kernel /proc...</div></div><div class="sp"></div>
+<div class="pill alert" id="alert">Zombie process detected</div><div class="pill" id="live"><i></i><span id="lt">live</span></div></header>
+
+<div class="grid kpis">
+<div class="card kpi"><b id="k1">0</b><span>processes</span></div><div class="card kpi"><b id="k2">0</b><span>running</span></div><div class="card kpi"><b id="k3">0</b><span>sleeping</span></div>
+<div class="card kpi z"><b id="k4">0</b><span>zombies</span></div><div class="card kpi"><b id="k5">0</b><span>threads</span></div><div class="card kpi"><b id="k6">0</b><span>tree depth</span></div></div>
+
+<div class="grid r2">
+<div class="card"><h3>System CPU and memory, last 60 samples</h3><canvas id="cA"></canvas><div class="leg"><span><i style="background:var(--c1)"></i>CPU <b id="vc">0%</b></span><span><i style="background:var(--c3)"></i>Memory <b id="vm">0%</b></span><span>Load <b id="vl">-</b></span><span>Uptime <b id="vu">-</b></span></div></div>
+<div class="card"><h3>Process count over time</h3><canvas id="cB"></canvas><div class="leg"><span><i style="background:var(--R)"></i>total <b id="vp">0</b></span><span id="vr"></span></div></div>
+<div class="card"><h3>State distribution</h3><div class="donutw"><div class="donut" id="dn" data-n="0"></div><div class="dl" id="dl"></div></div></div></div>
+
+<div class="grid r3">
+<div class="card"><h3>Top CPU consumers</h3><div id="tc"></div></div>
+<div class="card"><h3>Top memory consumers</h3><div id="tm"></div></div>
+<div class="card"><h3>Live event feed</h3><div class="feed" id="fd"></div></div></div>
+
+<div class="grid main">
+<div class="card"><div class="tools"><input id="q" type="search" placeholder="Filter by name, PID, user or command" aria-label="Filter">
+<button id="bt" class="on">Tree list</button><button id="bg">Graph</button><button id="ex">Expand all</button><button id="co">Collapse all</button>
+<select id="rt"><option value="1000">1 s</option><option value="2000">2 s</option><option value="5000">5 s</option></select><button id="ps">Pause</button></div><div id="view"></div></div>
+<aside class="card" id="dt"><div class="empty">Select a process: details, CPU sparkline and ancestry to PID 1 appear here.</div></aside></div>
+</div>
+<script>
+const $=s=>document.querySelector(s),N=60;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SN={R:'Running',S:'Sleeping',D:'Disk wait',Z:'Zombie',T:'Stopped',t:'Trace stop',I:'Idle',X:'Exited',V:''},cl=s=>s==='t'?'T':s;
+const COL={R:'#2ee59d',S:'#4f9bff',D:'#ffb53b',Z:'#ff4d6d',T:'#b07bff',I:'#7b88a8'};
+const fm=b=>b>=2**30?(b/2**30).toFixed(1)+' GB':b>=2**20?(b/2**20).toFixed(1)+' MB':Math.round(b/1024)+' KB';
+const fa=s=>s>=86400?Math.floor(s/86400)+'d '+Math.floor(s%86400/3600)+'h':s>=3600?Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m':s>=60?Math.floor(s/60)+'m '+s%60+'s':s+'s';
+let data,prev=new Map(),ghosts=new Map(),born=new Map(),col=new Set(),sel=null,paused=false,view='tree',q='',nodes=new Map(),extra={},hist=[],ph=new Map(),ev=[],tm;
+async function poll(){clearTimeout(tm);if(!paused){try{ingest(await(await fetch('/api/processes',{cache:'no-store'})).json());live(1)}catch(e){live(0)}}tm=setTimeout(poll,+$('#rt').value)}
+function live(ok){$('#live').className='pill'+(ok?'':' off');$('#lt').textContent=ok?'live':'server not reachable'}
+function log(c,t){ev.unshift({c,t,at:new Date().toLocaleTimeString()});ev.length=Math.min(ev.length,40)}
+function ingest(d){const now=Date.now(),cur=new Map(d.processes.map(p=>[p.pid,p]));
+ if(prev.size){for(const[p,x]of cur)if(!prev.has(p)){born.set(p,now+3e3);log(x.state==='Z'?'z':'b',`+ ${p} ${x.name} (ppid ${x.ppid})`)}
+  for(const[p,x]of prev)if(!cur.has(p)){ghosts.set(p,{...x,state:'X',cpu:0,until:now+3e3});log('d',`- ${p} ${x.name} exited`)}
+  for(const[p,x]of cur){const o=prev.get(p);if(o&&o.state!=='Z'&&x.state==='Z')log('z',`! ${p} ${x.name} became zombie`)}}
+ for(const[p,g]of ghosts)if(g.until<now||cur.has(p))ghosts.delete(p);for(const[p,t]of born)if(t<now)born.delete(p);
+ for(const p of cur.values()){const a=ph.get(p.pid)||[];a.push(p.cpu);if(a.length>N)a.shift();ph.set(p.pid,a)}for(const p of ph.keys())if(!cur.has(p))ph.delete(p);
+ hist.push({cpu:d.sys.cpu,mem:d.sys.mem_total?100*d.sys.mem_used/d.sys.mem_total:0,n:d.count});if(hist.length>N)hist.shift();
+ prev=cur;data=d;render()}
+function forest(l){const m=new Map(l.map(p=>[p.pid,{...p,children:[]}])),r={pid:0,ppid:0,name:'system',state:'V',user:'',cmd:'',cpu:0,rss:0,threads:0,virtual:1,children:[]};
+ for(const n of m.values()){const p=m.get(n.ppid);(p&&p!==n?p:r).children.push(n)}const so=n=>{n.children.sort((a,b)=>a.pid-b.pid);n.children.forEach(so)};so(r);return{r,m}}
+function mark(n,q){const s=!q||String(n.pid)===q||n.name.toLowerCase().includes(q)||n.user.toLowerCase().includes(q)||n.cmd.toLowerCase().includes(q);let a=0;for(const c of n.children)if(mark(c,q))a=1;n.match=s;n.show=s||a;return n.show}
+const desc=n=>n.children.reduce((a,c)=>a+1+desc(c),0),depth=n=>n.children.length?1+Math.max(...n.children.map(depth)):0,isC=(n,q)=>col.has(n.pid)&&!q;
+function render(){if(!data)return;const{r,m}=forest([...data.processes,...ghosts.values()]);nodes=m;const qq=q.trim().toLowerCase();mark(r,qq);
+ const P=data.processes,c=k=>P.filter(p=>k.includes(p.state)).length,z=c('Z');
+ $('#k1').textContent=P.length;$('#k2').textContent=c('R');$('#k3').textContent=c('SDI');$('#k4').textContent=z;$('#k5').textContent=P.reduce((a,p)=>a+p.threads,0);$('#k6').textContent=depth(r)-1;
+ $('#alert').classList.toggle('on',z>0);$('#alert').textContent=z+' zombie process'+(z>1?'es':'')+' detected';
+ const s=data.sys;$('#host').textContent=`${data.hostname} - ${s.cores} cores - ${fm(s.mem_total)} RAM`;
+ $('#vc').textContent=s.cpu+'%';$('#vm').textContent=hist.at(-1).mem.toFixed(0)+'%';$('#vl').textContent=s.load.join(' / ');$('#vu').textContent=fa(Math.floor(data.uptime));$('#vp').textContent=P.length;
+ draw($('#cA'),[{d:hist.map(h=>h.cpu),c:'#35e0ff'},{d:hist.map(h=>h.mem),c:'#ff5d8f'}],100);
+ draw($('#cB'),[{d:hist.map(h=>h.n),c:'#2ee59d'}],Math.max(10,...hist.map(h=>h.n))*1.2);
+ donut(P);bars();$('#fd').innerHTML=ev.length?ev.map(e=>`<div class="${e.c}"><small>${e.at}</small>${esc(e.t)}</div>`).join(''):'<div class="empty">Waiting for process births and deaths...</div>';
+ if(view==='tree')tree(r,qq);else graph(r,qq);detail()}
+function draw(cv,ser,max){const d=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==w*d){cv.width=w*d;cv.height=h*d}const x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);
+ x.strokeStyle='rgba(255,255,255,.07)';for(let i=1;i<4;i++){x.beginPath();x.moveTo(0,h*i/4);x.lineTo(w,h*i/4);x.stroke()}
+ for(const s of ser){const n=s.d.length;if(n<2)continue;const pt=s.d.map((v,i)=>[w-(n-1-i)*w/(N-1),h-4-Math.min(v/max,1)*(h-14)]);
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,s.c+'66');g.addColorStop(1,s.c+'00');x.beginPath();pt.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));
+  x.strokeStyle=s.c;x.lineWidth=2;x.lineJoin='round';x.shadowColor=s.c;x.shadowBlur=8;x.stroke();x.shadowBlur=0;x.lineTo(pt.at(-1)[0],h);x.lineTo(pt[0][0],h);x.fillStyle=g;x.fill()}}
+function donut(P){const k={R:0,S:0,D:0,Z:0,T:0,I:0};P.forEach(p=>k[cl(p.state)]=(k[cl(p.state)]||0)+1);let a=0,st=[];
+ for(const[s,v]of Object.entries(k)){if(!v)continue;const b=a+v/P.length*100;st.push(`${COL[s]||'#999'} ${a}% ${b}%`);a=b}
+ $('#dn').style.background=`conic-gradient(${st.join(',')})`;$('#dn').dataset.n=P.length;
+ $('#dl').innerHTML=Object.entries(k).filter(([,v])=>v).map(([s,v])=>`<div><i class="s-${s}"></i>${SN[s]} <b>${v}</b></div>`).join('')}
+function bars(){const P=data.processes,tc=[...P].sort((a,b)=>b.cpu-a.cpu).slice(0,6),tm=[...P].sort((a,b)=>b.rss-a.rss).slice(0,6),mx=Math.max(1,tc[0].cpu),mm=tm[0].rss||1;
+ $('#tc').innerHTML=tc.map(p=>`<div class="bar" data-pid="${p.pid}"><span class="nm">${esc(p.name)}</span><div class="tr"><u style="width:${p.cpu/mx*100}%"></u></div><em>${p.cpu}%</em></div>`).join('');
+ $('#tm').innerHTML=tm.map(p=>`<div class="bar" data-pid="${p.pid}"><span class="nm">${esc(p.name)}</span><div class="tr m"><u style="width:${p.rss/mm*100}%"></u></div><em>${fm(p.rss)}</em></div>`).join('')}
+function rows(n,d,o,q){if(!n.show)return;if(!n.virtual){const k=n.children.length,c=isC(n,q),x=['row'];if(sel===n.pid)x.push('sel');if(born.has(n.pid))x.push('new');if(n.state==='X')x.push('ghost');if(n.state==='Z')x.push('zombie');if(q&&!n.match)x.push('miss');
+ o.push(`<div class="${x.join(' ')}" data-pid="${n.pid}"><span class="name" style="padding-left:${d*18}px"><span class="tg" data-t="${n.pid}">${k?(c?'&#9656;':'&#9662;'):'&middot;'}</span><i class="dot s-${cl(n.state)}"></i>${esc(n.name)}${c?`<em>+${desc(n)}</em>`:''}</span><span class="num">${n.pid}</span><span class="num">${n.ppid}</span><span>${esc(n.user)}</span><span>${SN[n.state]||n.state}</span><span class="num">${n.cpu.toFixed(1)}</span><span class="num">${fm(n.rss)}</span><span class="num">${n.threads}</span><span class="cmd" title="${esc(n.cmd)}">${esc(n.cmd)}</span></div>`)}
+ if(!isC(n,q))for(const c of n.children)rows(c,n.virtual?0:d+1,o,q)}
+function keep(f){const v=$('#view'),t=v.scrollTop,l=v.scrollLeft;f(v);v.scrollTop=t;v.scrollLeft=l}
+function tree(r,q){const o=['<div class="hdr"><span>Process</span><span class="num">PID</span><span class="num">PPID</span><span>User</span><span>State</span><span class="num">CPU %</span><span class="num">Memory</span><span class="num">Thr</span><span>Command</span></div>'];rows(r,0,o,q);if(o.length===1)o.push('<div class="empty">No process matches this filter.</div>');keep(v=>v.innerHTML=o.join(''))}
+function graph(r,q){const DX=190,DY=24,it=[],ln=[];let y=0,mx=0;(function lay(n,d){const k=n.children.filter(c=>c.show),c=isC(n,q);mx=Math.max(mx,d);if(!k.length||c)n.gy=20+y++*DY;else{k.forEach(c=>lay(c,d+1));n.gy=(k[0].gy+k.at(-1).gy)/2}n.gx=20+d*DX;it.push(n);if(k.length&&!c)k.forEach(c=>ln.push([n,c]))})(r,0);
+ const p=ln.map(([a,b])=>{const m=(a.gx+b.gx)/2;return`<path class="l" d="M${a.gx} ${a.gy}C${m} ${a.gy},${m} ${b.gy},${b.gx} ${b.gy}"/>`}).join('');
+ const g=it.map(n=>`<g class="nd ${sel===n.pid?'sel':''} ${n.state==='X'?'ghost':''}" data-pid="${n.pid}" transform="translate(${n.gx},${n.gy})"><circle r="${born.has(n.pid)?10:6}" fill="${COL[cl(n.state)]||'#fff'}" style="color:${COL[cl(n.state)]||'#fff'}"/><text x="12" y="4">${esc(n.name)}<tspan class="p" dx="5">${n.virtual?'':n.pid}${isC(n,q)&&n.children.length?' +'+desc(n):''}</tspan></text><title>${esc(n.cmd||n.name)}</title></g>`).join('');
+ keep(v=>v.innerHTML=`<svg width="${(mx+1)*DX+130}" height="${y*DY+30}">${p}${g}</svg>`)}
+function detail(){const el=$('#dt'),n=sel!=null?nodes.get(sel):null;if(!n||n.virtual){el.innerHTML='<div class="empty">Select a process: details, CPU sparkline and ancestry to PID 1 appear here.</div>';return}
+ const e=extra[n.pid]||{},s=e.status||{},ch=[];let c=nodes.get(n.ppid),g=0;while(c&&g++<64){ch.push(c);c=nodes.get(c.ppid)}
+ el.innerHTML=`<h2>${esc(n.name)}</h2><span class="chip">PID ${n.pid} - parent ${n.ppid}</span><canvas id="sp" style="height:70px"></canvas>
+ <dl><dt>State</dt><dd><i class="dot s-${cl(n.state)}"></i>${SN[n.state]||n.state}</dd><dt>User</dt><dd>${esc(n.user)}</dd><dt>CPU</dt><dd>${n.cpu.toFixed(1)} %</dd><dt>Memory</dt><dd>${fm(n.rss)}</dd><dt>Threads</dt><dd>${n.threads}</dd><dt>Running for</dt><dd>${fa(n.age||0)}</dd>
+ <dt>Children</dt><dd>${n.children.length} direct, ${desc(n)} total</dd><dt>Executable</dt><dd>${e.exe?esc(e.exe):'not readable'}</dd><dt>Working dir</dt><dd>${e.cwd?esc(e.cwd):'not readable'}</dd><dt>Open files</dt><dd>${e.open_fds??'not readable'}</dd>
+ <dt>Ctx switches</dt><dd>${s.voluntary_ctxt_switches??'-'} vol / ${s.nonvoluntary_ctxt_switches??'-'} forced</dd><dt>Command</dt><dd>${esc(n.cmd)}</dd></dl>
+ <b>Path to init</b><div class="anc">${ch.length?ch.map(c=>`<a data-go="${c.pid}">${c.pid} ${esc(c.name)}</a>`).join(''):'top-level'}</div>`;
+ draw($('#sp'),[{d:ph.get(n.pid)||[],c:'#35e0ff'}],Math.max(5,...(ph.get(n.pid)||[0])))}
+async function pick(p){sel=p;render();try{const r=await fetch('/api/process/'+p);if(r.ok){extra[p]=await r.json();detail()}}catch(e){}}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-t]');if(t){const p=+t.dataset.t;col.has(p)?col.delete(p):col.add(p);render();return}
+ const go=e.target.closest('[data-go]');if(go)return pick(+go.dataset.go);const r=e.target.closest('[data-pid]');if(r&&+r.dataset.pid)pick(+r.dataset.pid)});
+$('#view').addEventListener('dblclick',e=>{const g=e.target.closest('g[data-pid]');if(g){const p=+g.dataset.pid;col.has(p)?col.delete(p):col.add(p);render()}});
+$('#q').oninput=e=>{q=e.target.value;render()};$('#ex').onclick=()=>{col.clear();render()};$('#co').onclick=()=>{for(const n of nodes.values())if(n.children.length)col.add(n.pid);render()};
+$('#ps').onclick=e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause';e.target.classList.toggle('on',paused);$('#lt').textContent=paused?'paused':'live'};$('#rt').onchange=poll;
+const sv=v=>{view=v;$('#bt').classList.toggle('on',v==='tree');$('#bg').classList.toggle('on',v==='graph');render()};$('#bt').onclick=()=>sv('tree');$('#bg').onclick=()=>sv('graph');
+addEventListener('resize',render);poll();
+</script></body></html>
